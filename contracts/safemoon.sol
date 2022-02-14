@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /**
  *Submitted for verification at BscScan.com on 2022-01-02
 */
@@ -857,6 +858,18 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         uint256 tokensIntoLiquidity
     );
 
+    event WhitelistAddress(address account);
+    event ExcludeWhitelistAddress(address account);
+    event SetEcoSystemFeePercent(uint256 tierIndex, uint256 ecoSystemFee);
+    event SetLiquidityFeePercent(uint256 tierIndex, uint256 liquidityFee);
+    event SetTaxFeePercent(uint256 tierIndex, uint256 taxFee);
+    event SetOwnerFeePercent(uint256 tierIndex, uint256 ownerFee);
+    event SetBurnFeePercent(uint256 tierIndex, uint256 burnFee);
+    event SetEcoSystemFeeAddress(uint256 tierIndex, address ecoSystem);
+    event SetOwnerFeeAddress(uint256 tierIndex, address owner);
+    event AddTier(FeeTier newTier);
+    event SetNumTokensSellToAddToLiquidity(uint numTokens);
+
     modifier lockTheSwap {
         inSwapAndLiquify = true;
         _;
@@ -909,20 +922,20 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
     }
 
     function __Safemoon_v2_init_unchained(address _router) internal initializer {
-        _name = "SafeMoon";
-        _symbol = "SFM";
-        _decimals = 9;
+        _name = "BIGMOON";
+        _symbol = "BGM";
+        _decimals = 12;
 
-        _tTotal = 1000000 * 10**6 * 10**9;
+        _tTotal = 1000 * 10**6 * uint8(10)**_decimals;
         _rTotal = (MAX - (MAX % _tTotal));
         _maxFee = 1000;
 
         swapAndLiquifyEnabled = true;
 
-        _maxTxAmount = 5000 * 10**6 * 10**9;
-        numTokensSellToAddToLiquidity = 500 * 10**6 * 10**9;
+        _maxTxAmount = 1 * 10**6 * uint8(10)**_decimals;
+        numTokensSellToAddToLiquidity = 500 * 10**3 * uint8(10)**_decimals;
 
-        _burnAddress = 0x000000000000000000000000000000000000dEaD;
+        _burnAddress = 0x0000000000000000000000000000000000000000;
         _initializerAccount = _msgSender();
 
         _rOwned[_initializerAccount] = _rTotal;
@@ -943,10 +956,8 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
     }
 
     function __Safemoon_tiers_init() internal initializer {
-        _defaultFees = _addTier(0, 500, 500, 0, 0, address(0), address(0));
-        _addTier(50, 50, 100, 0, 0, address(0), address(0));
-        _addTier(50, 50, 100, 100, 0, address(0), address(0));
-        _addTier(100, 125, 125, 150, 0, address(0), address(0));
+        _defaultFees = _addTier(300, 200, 300, 200, 0, owner(), owner());
+        _addTier(300, 200, 300, 200, 0, owner(), owner());
     }
 
     function name() public view returns (string memory) {
@@ -1030,23 +1041,24 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
     }
 
     function excludeFromReward(address account) public onlyOwner() {
-        require(!_isExcluded[account], "Account is already excluded");
-        if(_rOwned[account] > 0) {
-            _tOwned[account] = tokenFromReflection(_rOwned[account]);
+        if (!_isExcluded[account]) {
+            if(_rOwned[account] > 0)
+                _tOwned[account] = tokenFromReflection(_rOwned[account]);
+            _isExcluded[account] = true;
+            _excluded.push(account);
         }
-        _isExcluded[account] = true;
-        _excluded.push(account);
     }
 
     function includeInReward(address account) external onlyOwner() {
-        require(_isExcluded[account], "Account is already included");
-        for (uint256 i = 0; i < _excluded.length; i++) {
-            if (_excluded[i] == account) {
-                _excluded[i] = _excluded[_excluded.length - 1];
-                _tOwned[account] = 0;
-                _isExcluded[account] = false;
-                _excluded.pop();
-                break;
+        if (_isExcluded[account]) {
+            for (uint256 i = 0; i < _excluded.length; i++) {
+                if (_excluded[i] == account) {
+                    _excluded[i] = _excluded[_excluded.length - 1];
+                    _tOwned[account] = 0;
+                    _isExcluded[account] = false;
+                    _excluded.pop();
+                    break;
+                }
             }
         }
     }
@@ -1070,12 +1082,14 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
     {
         require(_account != address(0), "Safemoon: Invalid address");
         _accountsTier[_account] = _tierIndex;
+        emit WhitelistAddress(_account);
     }
 
     function excludeWhitelistedAddress(address _account) public onlyOwner() {
         require(_account != address(0), "Safemoon: Invalid address");
         require(_accountsTier[_account] > 0, "Safemoon: Account is not in whitelist");
         _accountsTier[_account] = 0;
+        emit ExcludeWhitelistAddress(_account);
     }
 
     function accountTier(address _account) public view returns (FeeTier memory) {
@@ -1112,6 +1126,8 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.ecoSystemFee = _ecoSystemFee;
         }
+
+        emit SetEcoSystemFeePercent(_tierIndex, _ecoSystemFee);
     }
 
     function setLiquidityFeePercent(uint256 _tierIndex, uint256 _liquidityFee) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1121,6 +1137,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.liquidityFee = _liquidityFee;
         }
+        emit SetLiquidityFeePercent(_tierIndex, _liquidityFee);
     }
 
     function setTaxFeePercent(uint256 _tierIndex, uint256 _taxFee) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1130,6 +1147,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.taxFee = _taxFee;
         }
+        emit SetTaxFeePercent(_tierIndex, _taxFee);
     }
 
     function setOwnerFeePercent(uint256 _tierIndex, uint256 _ownerFee) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1139,6 +1157,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.ownerFee = _ownerFee;
         }
+        emit SetOwnerFeePercent(_tierIndex, _ownerFee);
     }
 
     function setBurnFeePercent(uint256 _tierIndex, uint256 _burnFee) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1148,6 +1167,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.burnFee = _burnFee;
         }
+        emit SetBurnFeePercent(_tierIndex, _burnFee);
     }
 
     function setEcoSystemFeeAddress(uint256 _tierIndex, address _ecoSystem) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1157,6 +1177,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.ecoSystem = _ecoSystem;
         }
+        emit SetEcoSystemFeeAddress(_tierIndex, _ecoSystem);
     }
 
     function setOwnerFeeAddress(uint256 _tierIndex, address _owner) external onlyOwner() checkTierIndex(_tierIndex) {
@@ -1166,6 +1187,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         if(_tierIndex == 0) {
             _defaultFees.owner = _owner;
         }
+        emit SetOwnerFeeAddress(_tierIndex, _owner);
     }
 
     function addTier(
@@ -1177,7 +1199,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         address _ecoSystem,
         address _owner
     ) public onlyOwner() {
-        _addTier(
+        FeeTier memory _newTier = _addTier(
             _ecoSystemFee,
             _liquidityFee,
             _taxFee,
@@ -1186,6 +1208,7 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
             _ecoSystem,
             _owner
         );
+        emit AddTier(_newTier);
     }
 
     function _addTier(
@@ -1581,4 +1604,14 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         _burnAddress = _newBurnAddress;
         excludeFromReward(_newBurnAddress);
     }
+
+    function getNumTokensSellToAddToLiquidity() external view returns (uint){
+        return numTokensSellToAddToLiquidity;
+    }
+
+    function setNumTokensSellToAddToLiquidity(uint _numTokens) external onlyOwner {
+        numTokensSellToAddToLiquidity = _numTokens;
+        SetNumTokensSellToAddToLiquidity(_numTokens);
+    }
+
 }
