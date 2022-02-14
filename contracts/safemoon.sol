@@ -774,7 +774,7 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
     ) external;
 }
 
-contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgradeable {
+contract Bigmoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgradeable {
     using SafeMathUpgradeable for uint256;
     using AddressUpgradeable for address;
 
@@ -926,14 +926,14 @@ contract Safemoon is ISafemoon, Initializable, ContextUpgradeable, OwnableUpgrad
         _symbol = "BGM";
         _decimals = 12;
 
-        _tTotal = 1000 * 10**6 * uint8(10)**_decimals;
+        _tTotal = 1000 * 10**6 * 10**uint(_decimals);
         _rTotal = (MAX - (MAX % _tTotal));
         _maxFee = 1000;
 
         swapAndLiquifyEnabled = true;
 
-        _maxTxAmount = 1 * 10**6 * uint8(10)**_decimals;
-        numTokensSellToAddToLiquidity = 500 * 10**3 * uint8(10)**_decimals;
+        _maxTxAmount = 1 * 10**6 * 10**uint(_decimals);
+        numTokensSellToAddToLiquidity = 500 * 10**3 * 10**uint(_decimals);
 
         _burnAddress = 0x0000000000000000000000000000000000000000;
         _initializerAccount = _msgSender();
